@@ -6,6 +6,10 @@ menu() {
     printf '%s\n' "$@" | $ROFI
 }
 
+# ============================================================
+# WI-FI
+# ============================================================
+
 wifi() {
     local wifi_device
     local state
@@ -17,6 +21,7 @@ wifi() {
     local password
     local loading_pid
     local scan_done
+    local rofi_pid
 
     wifi_device=$(nmcli -t -f DEVICE,TYPE device status |
         awk -F: '$2 == "wifi" {print $1; exit}')
@@ -38,8 +43,8 @@ wifi() {
 
         choice=$(menu \
             "󰤨  Wi-Fi: ${connection}" \
-            "󰤭  Enable Wi-Fi" \
-            "󰤮  Disable Wi-Fi" \
+            "󰤨  Enable Wi-Fi" \
+            "󰤭  Disable Wi-Fi" \
             "󰤯  Available Networks" \
             "󰖩  Disconnect") || return
 
@@ -69,10 +74,11 @@ wifi() {
                         $ROFI -dmenu -no-custom \
                         -config "$HOME/.config/rofi/utility.rasi" \
                         -p "Wi-Fi" &
-                    
+
                     rofi_pid=$!
 
-                    while [ ! -f "$scan_done" ] && kill -0 "$rofi_pid" 2>/dev/null; do
+                    while [ ! -f "$scan_done" ] &&
+                        kill -0 "$rofi_pid" 2>/dev/null; do
                         sleep 0.05
                     done
 
@@ -96,8 +102,9 @@ wifi() {
                         }
                         END {
                             for (ssid in best)
-                                printf "%s\t%s\t%s\n", ssid, best[ssid], security[ssid]
-                    }
+                                printf "%s\t%s\t%s\n",
+                                    ssid, best[ssid], security[ssid]
+                        }
                     ' |
                     sort -t $'\t' -k2,2nr
                 )
@@ -162,9 +169,21 @@ wifi() {
     done
 }
 
+# ============================================================
+# BLUETOOTH
+# ============================================================
+
 bluetooth() {
+    local power
+    local choice
+    local devices
+    local selected
+    local mac
+    local action
+
     while true; do
-        power=$(bluetoothctl show 2>/dev/null | awk -F': ' '/Powered:/{print $2}')
+        power=$(bluetoothctl show 2>/dev/null |
+            awk -F': ' '/Powered:/{print $2}')
 
         choice=$(menu \
             "󰂯  Bluetooth: ${power:-unknown}" \
@@ -177,73 +196,103 @@ bluetooth() {
             *"Enable Bluetooth")
                 bluetoothctl power on
                 ;;
+
             *"Disable Bluetooth")
                 bluetoothctl power off
                 ;;
+
             *"Paired Devices")
                 devices=$(bluetoothctl devices Paired 2>/dev/null)
-                selected=$(printf '%s\n' "$devices" | $ROFI -p "Bluetooth") || continue
+
+                [ -n "$devices" ] || {
+                    rofi -e "No paired devices"
+                    continue
+                }
+
+                selected=$(printf '%s\n' "$devices" |
+                    $ROFI -p "Bluetooth") || continue
 
                 mac=$(printf '%s\n' "$selected" | awk '{print $2}')
                 [ -n "$mac" ] || continue
 
-                action=$(menu "Connect" "Disconnect" "Remove" "Back") || continue
+                action=$(menu \
+                    "󰂱  Connect" \
+                    "󰂲  Disconnect" \
+                    "󰆴  Remove" \
+                    "󰁍  Back") || continue
 
                 case "$action" in
-                    Connect)
+                    *"Connect")
                         bluetoothctl connect "$mac"
                         ;;
-                    Disconnect)
+
+                    *"Disconnect")
                         bluetoothctl disconnect "$mac"
                         ;;
-                    Remove)
+
+                    *"Remove")
                         bluetoothctl remove "$mac"
                         ;;
                 esac
                 ;;
+
             *"Scan for Devices")
                 bluetoothctl scan on >/dev/null 2>&1 &
                 sleep 5
                 bluetoothctl scan off >/dev/null 2>&1
 
                 devices=$(bluetoothctl devices 2>/dev/null)
-                selected=$(printf '%s\n' "$devices" | $ROFI -p "Found Devices") || continue
+
+                selected=$(printf '%s\n' "$devices" |
+                    $ROFI -p "Found Devices") || continue
 
                 mac=$(printf '%s\n' "$selected" | awk '{print $2}')
+
                 [ -n "$mac" ] && bluetoothctl pair "$mac"
                 ;;
         esac
     done
 }
 
-power() {
-    choice=$(menu \
-        "󰐥  Lock" \
-        "󰒲  Suspend" \
-        "󰍃  Log Out" \
-        "󰜉  Reboot" \
-        "󰐥  Power Off") || return
+# ============================================================
+# DISPLAY
+# ============================================================
 
-    case "$choice" in
-        *"Lock")
-            hyprlock
-            ;;
-        *"Suspend")
-            systemctl suspend
-            ;;
-        *"Log Out")
-            hyprctl dispatch exit
-            ;;
-        *"Reboot")
-            systemctl reboot
-            ;;
-        *"Power Off")
-            systemctl poweroff
-            ;;
-    esac
+display() {
+    local choice
+    local monitors
+
+    while true; do
+        choice=$(menu \
+            "󰍹  Monitor Information" \
+            "󰍺  Reload Hyprland Config") || return
+
+        case "$choice" in
+            *"Monitor Information")
+                monitors=$(hyprctl monitors 2>/dev/null)
+
+                printf '%s\n' "$monitors" |
+                    $ROFI -dmenu -p "Displays"
+                ;;
+
+            *"Reload Hyprland Config")
+                hyprctl reload
+                ;;
+        esac
+    done
 }
 
+# ============================================================
+# DISKS
+# ============================================================
+
 disks() {
+    local root_partition
+    local root_disk
+    local devices
+    local selected
+    local device
+
     root_partition=$(findmnt -n -o SOURCE /)
     root_disk=$(lsblk -no PKNAME "$root_partition" 2>/dev/null)
 
@@ -255,7 +304,9 @@ disks() {
 
     while true; do
         devices=$(
-            lsblk -e7 -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS -p 2>/dev/null |
+            lsblk -e7 \
+                -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS \
+                -p 2>/dev/null |
             while IFS= read -r line; do
                 device=$(printf '%s\n' "$line" |
                     sed -nE 's/.*(\/dev\/[^[:space:]]+).*/\1/p')
@@ -268,7 +319,8 @@ disks() {
                 parent_disk=$(lsblk -no PKNAME "$device" 2>/dev/null)
 
                 if [ "$device" = "$root_disk" ] ||
-                   [ -n "$parent_disk" ] && [ "/dev/$parent_disk" = "$root_disk" ]; then
+                    { [ -n "$parent_disk" ] &&
+                      [ "/dev/$parent_disk" = "$root_disk" ]; }; then
                     continue
                 fi
 
@@ -282,7 +334,9 @@ disks() {
             done
         )
 
-        selected=$(printf '%s\n' "$devices" | $ROFI -p "Disks") || return
+        selected=$(printf '%s\n' "$devices" |
+            $ROFI -p "Disks") || return
+
         [ -n "$selected" ] || return
 
         device=$(printf '%s\n' "$selected" |
@@ -298,23 +352,75 @@ disks() {
     done
 }
 
+# ============================================================
+# CLIPBOARD
+# ============================================================
+
+clipboard() {
+    local selected
+
+    if ! command -v cliphist >/dev/null; then
+        rofi -e "cliphist is not installed"
+        return
+    fi
+
+    selected=$(cliphist list |
+        $ROFI -p "Clipboard") || return
+
+    [ -n "$selected" ] || return
+
+    printf '%s\n' "$selected" |
+        cliphist decode |
+        wl-copy
+}
+
+# ============================================================
+# COLOR PICKER
+# ============================================================
+
+color_picker() {
+    if ! command -v hyprpicker >/dev/null; then
+        rofi -e "hyprpicker is not installed"
+        return
+    fi
+
+    color=$(hyprpicker -a)
+
+    [ -n "$color" ] || return
+
+    notify-send "Color Picker" "Copied: $color"
+}
+
+# ============================================================
+# SCRIPTS
+# ============================================================
+
 scripts() {
-    dir="$HOME/.config/hypr/scripts"
+    local dir="$HOME/.config/hypr/scripts"
+    local selected
 
     while true; do
         mapfile -t files < <(
-            find "$dir" -maxdepth 1 -type f -name '*.sh' -printf '%f\n' | sort
+            find "$dir" \
+                -maxdepth 1 \
+                -type f \
+                -name '*.sh' \
+                -printf '%f\n' |
+            sort
         )
 
         [ "${#files[@]}" -gt 0 ] || return
 
-        selected=$(printf '%s\n' "${files[@]}" | $ROFI -p "Scripts") || return
+        selected=$(printf '%s\n' "${files[@]}" |
+            $ROFI -p "Scripts") || return
+
         [ -n "$selected" ] || return
 
         case "$selected" in
             rofi-menu.sh)
                 continue
                 ;;
+
             *)
                 "$dir/$selected"
                 ;;
@@ -324,11 +430,55 @@ scripts() {
     done
 }
 
+# ============================================================
+# POWER
+# ============================================================
+
+power() {
+    local choice
+
+    choice=$(menu \
+        "󰌾  Lock" \
+        "󰒲  Suspend" \
+        "󰍃  Log Out" \
+        "󰜉  Reboot" \
+        "󰐥  Power Off") || return
+
+    case "$choice" in
+        *"Lock")
+            hyprlock
+            ;;
+
+        *"Suspend")
+            systemctl suspend
+            ;;
+
+        *"Log Out")
+            hyprctl dispatch exit
+            ;;
+
+        *"Reboot")
+            systemctl reboot
+            ;;
+
+        *"Power Off")
+            systemctl poweroff
+            ;;
+    esac
+}
+
+# ============================================================
+# MAIN MENU
+# ============================================================
+
 while true; do
     choice=$(menu \
         "󰤨  Wi-Fi" \
         "󰂯  Bluetooth" \
+        "󰍹  Display" \
         "󰋊  Disks" \
+        "󰋼  Clipboard" \
+        "󰄀  Color Picker" \
         "󰒓  Scripts" \
         "󰐥  Power") || exit 0
 
@@ -336,17 +486,33 @@ while true; do
         *"Wi-Fi")
             wifi
             ;;
+
         *"Bluetooth")
             bluetooth
             ;;
-        *"Power")
-            power
+
+        *"Display")
+            display
             ;;
+
         *"Disks")
             disks
             ;;
+
+        *"Clipboard")
+            clipboard
+            ;;
+
+        *"Color Picker")
+            color_picker
+            ;;
+
         *"Scripts")
             scripts
+            ;;
+
+        *"Power")
+            power
             ;;
     esac
 done
