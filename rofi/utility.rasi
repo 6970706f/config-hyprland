@@ -1,0 +1,12 @@
+@theme "/usr/share/rofi/themes/Arc-Dark.rasi"
+
+configuration {
+    kb-row-up: "w";
+    kb-row-down: "s";
+    kb-accept-entry: "d";
+    kb-cancel: "Escape,a";
+}
+
+inputbar {
+    enabled: false;
+}

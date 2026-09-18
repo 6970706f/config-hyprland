@@ -1,0 +1,42 @@
+#!/bin/bash
+# toggle_audio.sh — alterna o sink padrão entre fone e monitor
+# Detecta automaticamente sinks disponíveis e alterna entre eles
+
+# Pega todos os sinks disponíveis (exceto monitor sinks do pulseaudio)
+mapfile -t SINKS < <(pactl list short sinks | grep -v ".monitor" | awk '{print $2}')
+
+if [[ ${#SINKS[@]} -lt 2 ]]; then
+    notify-send "🔊 Áudio" "Apenas um dispositivo de saída encontrado." -t 2000
+    exit 1
+fi
+
+# Pega o sink atual
+CURRENT=$(pactl get-default-sink)
+
+# Encontra o índice do sink atual
+CURRENT_INDEX=-1
+for i in "${!SINKS[@]}"; do
+    if [[ "${SINKS[$i]}" == "$CURRENT" ]]; then
+        CURRENT_INDEX=$i
+        break
+    fi
+done
+
+# Próximo sink (circular)
+NEXT_INDEX=$(( (CURRENT_INDEX + 1) % ${#SINKS[@]} ))
+NEXT_SINK="${SINKS[$NEXT_INDEX]}"
+
+# Aplica o novo sink padrão
+pactl set-default-sink "$NEXT_SINK"
+
+# Move todos os inputs de áudio ativos pro novo sink
+pactl list short sink-inputs | awk '{print $1}' | while read -r INPUT; do
+    pactl move-sink-input "$INPUT" "$NEXT_SINK"
+done
+
+# Notificação amigável
+# Tenta pegar um nome legível do sink
+FRIENDLY=$(pactl list sinks | grep -A 20 "Name: $NEXT_SINK" | grep "device.description" | cut -d'"' -f2)
+[[ -z "$FRIENDLY" ]] && FRIENDLY="$NEXT_SINK"
+
+notify-send "🔊 Áudio alternado" "$FRIENDLY" -t 2000

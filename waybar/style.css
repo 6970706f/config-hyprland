@@ -1,0 +1,131 @@
+@define-color nord0  #000000;
+@define-color nord1  #000000;
+@define-color nord2  #000000;
+@define-color nord3  #000000;
+@define-color nord4  #ffffff;
+@define-color nord5  #ffffff;
+@define-color nord6  #ffffff;
+@define-color nord7  #ffffff;
+@define-color nord8  #ffffff;
+@define-color nord9  #ffffff;
+@define-color nord10 #ffffff;
+@define-color nord11 #ffffff;
+@define-color nord12 #ffffff;
+@define-color nord13 #ffffff;
+@define-color nord14 #ffffff;
+@define-color nord15 #ffffff;
+
+/* Aliases legíveis */
+@define-color rosewater @nord15;
+@define-color flamingo  @nord11;
+@define-color pink      @nord15;
+@define-color mauve     @nord15;
+@define-color red       @nord11;
+@define-color maroon    @nord11;
+@define-color peach     @nord12;
+@define-color yellow    @nord13;
+@define-color green     @nord14;
+@define-color teal      @nord7;
+@define-color sky       @nord8;
+@define-color sapphire  @nord9;
+@define-color blue      @nord10;
+@define-color lavender  @nord9;
+@define-color text      @nord4;
+@define-color subtext1  @nord5;
+@define-color subtext0  @nord4;
+@define-color overlay2  @nord3;
+@define-color overlay1  @nord2;
+@define-color overlay0  @nord1;
+@define-color surface2  @nord3;
+@define-color surface1  @nord2;
+@define-color surface0  @nord1;
+@define-color base      @nord0;
+@define-color mantle    #000000;
+@define-color crust     #000000;
+
+* {
+  font-family: "JetBrains Mono Nerd", monospace;
+  border: none;
+  min-height: 0;
+  font-weight: bold;
+}
+
+window#waybar {
+  background-color: @nord0;
+  border-radius: 0;
+  color: @nord9;
+  padding: 2px 12px;
+  transition: 0.3s all;
+}
+
+.modules-left,
+.modules-center,
+.modules-right {
+  padding: 0 1rem;
+  color: @nord;
+  border: none;
+}
+
+.modules-center {
+  padding: 2px;
+}
+
+#custom-icon {
+  font-size: 15px;
+  padding-right: 5px;
+}
+
+#window {
+  font-weight: bold;
+  color: @nord8;
+  transition: all 0.3s ease;
+}
+
+#workspaces {
+  font-weight: bold;
+  font-size: 12px;
+  border: none;
+}
+
+#workspaces button {
+  color: @nord9;
+  border-radius: 0;
+  transition: 0.2s ease-out;
+  border-bottom: 1px solid transparent;
+}
+
+#workspaces button.urgent {
+  border-bottom: 1px solid @nord10;
+}
+
+#workspaces button.active {
+  border-bottom: 1px solid @nord9;
+  color: @nord9;
+}
+
+#tray {
+  color: @nord9;
+}
+
+#clock {
+  transition: all 0.3s ease;
+  font-weight: bold;
+}
+
+#clock:hover {
+  color: @nord13;
+}
+
+#pulseaudio {
+  transition: all 0.3s ease;
+  font-weight: bold;
+}
+
+#pulseaudio:hover {
+  color: @nord13;
+}
+
+#custom-recorder.recording {
+    color: @nord9;
+    font-size: 18px;
+}
